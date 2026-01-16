@@ -3,8 +3,8 @@
   "name": "Chrome Page Sender",
   "version": "0.1.0",
   "description": "A lightweight Chrome extension that captures content from the active tab and sends it to a local server via HTTP.",
-  "permissions": ["activeTab", "scripting"],
-  "host_permissions": ["http://localhost:*/*", "ws://localhost:*/*"],
+  "permissions": ["activeTab", "scripting", "alarms", "tabs"],
+  "host_permissions": ["http://*/*", "https://*/*", "http://localhost:*/*", "ws://localhost:*/*"],
   "background": {
     "service_worker": "background.js"
   },

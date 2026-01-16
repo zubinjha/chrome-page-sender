@@ -26,14 +26,12 @@ function capturePage(includeHtml, maxChars) {
 
 async function buildPayloadFromTab(tab) {
   if (!tab || typeof tab.id !== "number") {
-    console.error("No active tab found.");
-    return null;
+    throw new Error("No active tab found.");
   }
 
   const tabUrl = tab.url || "";
   if (!/^https?:\/\//i.test(tabUrl)) {
-    console.error("Unsupported tab URL; only http/https pages can be captured.");
-    return null;
+    throw new Error("Unsupported tab URL; only http/https pages can be captured.");
   }
 
   let page;
@@ -45,13 +43,11 @@ async function buildPayloadFromTab(tab) {
     });
     page = results && results[0] ? results[0].result : null;
   } catch (err) {
-    console.error("Failed to capture page content.", err);
-    return null;
+    throw new Error("Failed to capture page content.");
   }
 
   if (!page) {
-    console.error("No page content captured.");
-    return null;
+    throw new Error("No page content captured.");
   }
 
   return {
@@ -89,13 +85,18 @@ async function captureActiveTab() {
   return buildPayloadFromTab(tab);
 }
 
-async function sendActiveTab(tab) {
-  const payload = await buildPayloadFromTab(tab);
-  if (!payload) {
-    return;
-  }
+async function captureTabById(tabId) {
+  const tab = await chrome.tabs.get(tabId);
+  return buildPayloadFromTab(tab);
+}
 
-  await postPayload(payload);
+async function sendActiveTab(tab) {
+  try {
+    const payload = await buildPayloadFromTab(tab);
+    await postPayload(payload);
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : "Failed to capture page.");
+  }
 }
 
 function scheduleReconnect() {
@@ -135,13 +136,47 @@ function connectWebSocket() {
       return;
     }
 
-    if (message?.type === "capture") {
-      const payload = await captureActiveTab();
-      if (!payload) {
-        socket.send(JSON.stringify({ type: "capture_result", ok: false }));
-        return;
+    if (message?.type === "list_tabs") {
+      try {
+        const tabs = await chrome.tabs.query({});
+        const filtered = tabs
+          .filter((tab) => tab.url && /^https?:\/\//i.test(tab.url))
+          .map((tab) => ({
+            id: tab.id,
+            title: tab.title || "",
+            url: tab.url || "",
+            windowId: tab.windowId,
+            active: Boolean(tab.active),
+          }));
+        socket.send(JSON.stringify({ type: "tabs_result", ok: true, tabs: filtered }));
+      } catch (err) {
+        socket.send(
+          JSON.stringify({
+            type: "tabs_result",
+            ok: false,
+            error: err instanceof Error ? err.message : "Failed to list tabs.",
+          })
+        );
       }
-      socket.send(JSON.stringify({ type: "capture_result", ok: true, payload }));
+      return;
+    }
+
+    if (message?.type === "capture") {
+      try {
+        const payload =
+          typeof message.tab_id === "number"
+            ? await captureTabById(message.tab_id)
+            : await captureActiveTab();
+        socket.send(JSON.stringify({ type: "capture_result", ok: true, payload }));
+      } catch (err) {
+        socket.send(
+          JSON.stringify({
+            type: "capture_result",
+            ok: false,
+            error: err instanceof Error ? err.message : "Capture failed.",
+          })
+        );
+      }
     }
   });
 
@@ -165,4 +200,18 @@ chrome.runtime.onStartup.addListener(() => {
 
 chrome.runtime.onInstalled.addListener(() => {
   connectWebSocket();
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "ws-reconnect") {
+    connectWebSocket();
+  }
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  chrome.alarms.create("ws-reconnect", { periodInMinutes: 1 });
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.alarms.create("ws-reconnect", { periodInMinutes: 1 });
 });
