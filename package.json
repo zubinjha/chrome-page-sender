@@ -1,0 +1,13 @@
+{
+  "name": "chrome-page-sender",
+  "private": true,
+  "scripts": {
+    "test:list-links": "node scripts/ws-list-links.js",
+    "test:click-first": "node scripts/ws-click-first.js",
+    "test:list-links-client": "node scripts/ws-list-links-client.js",
+    "test:click-first-client": "node scripts/ws-click-first-client.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}

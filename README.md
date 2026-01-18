@@ -21,6 +21,7 @@ const INGEST_URL = "http://localhost:4587/ingest";
 const WS_URL = "ws://localhost:4587/ws";
 const INCLUDE_HTML = false;
 const MAX_TEXT_CHARS = 200000;
+const MAX_LINKS = 5000;
 ```
 
 Notes:
@@ -51,6 +52,38 @@ WebSocket requests:
 { "type": "list_tabs" }
 ```
 
+```json
+{ "type": "list_links" }
+```
+
+```json
+{ "type": "list_links", "tab_id": 123 }
+```
+
+```json
+{ "type": "click_link", "index": 0 }
+```
+
+```json
+{ "type": "click_link", "tab_id": 123, "index": 0 }
+```
+
+```json
+{ "type": "scroll_link", "index": 0 }
+```
+
+```json
+{ "type": "scroll_link", "tab_id": 123, "index": 0 }
+```
+
+```json
+{ "type": "go_back" }
+```
+
+```json
+{ "type": "go_back", "tab_id": 123 }
+```
+
 Responses:
 ```json
 { "type": "capture_result", "ok": true, "payload": { ... } }
@@ -58,6 +91,22 @@ Responses:
 
 ```json
 { "type": "tabs_result", "ok": true, "tabs": [ ... ] }
+```
+
+```json
+{ "type": "links_result", "ok": true, "links": [ ... ] }
+```
+
+```json
+{ "type": "click_result", "ok": true, "result": { ... } }
+```
+
+```json
+{ "type": "scroll_result", "ok": true, "result": { ... } }
+```
+
+```json
+{ "type": "back_result", "ok": true, "result": { ... } }
 ```
 
 ## Server expectations
@@ -83,11 +132,85 @@ The extension connects to `WS_URL` and expects a JSON message protocol:
 - Response: `{ "type": "capture_result", "ok": true, "payload": { ... } }`
 - Request: `{ "type": "list_tabs" }`
 - Response: `{ "type": "tabs_result", "ok": true, "tabs": [ ... ] }`
+- Request: `{ "type": "list_links" }`
+- Response: `{ "type": "links_result", "ok": true, "links": [ ... ] }`
+- Request: `{ "type": "scroll_link", "index": 0 }`
+- Response: `{ "type": "scroll_result", "ok": true, "result": { ... } }`
+- Request: `{ "type": "click_link", "index": 0 }`
+- Response: `{ "type": "click_result", "ok": true, "result": { ... } }`
+- Request: `{ "type": "go_back" }`
+- Response: `{ "type": "back_result", "ok": true, "result": { ... } }`
 
 ## Troubleshooting
 - `chrome://` and extension pages cannot be captured.
 - If capture fails, check the service worker console in `chrome://extensions`.
 - If WebSocket capture stops, reload the extension to reconnect.
+
+## WS testers
+The repo includes simple WebSocket test servers that work with the extension's
+`WS_URL` (default `ws://localhost:4587/ws`).
+
+1. Install dependencies:
+
+```sh
+npm install
+```
+
+2. Run a tester (these start their own WS server):
+
+```sh
+npm run test:list-links
+```
+
+```sh
+npm run test:click-first
+```
+
+If you already have a WS server running (for example `tester/server.mjs`),
+use the client scripts instead:
+
+```sh
+npm run test:list-links-client
+```
+
+```sh
+npm run test:click-first-client
+```
+
+## Tester server (HTTP + WS)
+The `tester` folder includes a combined HTTP + WebSocket server and simple
+client commands for manual testing.
+
+### Terminal 1 (server)
+```sh
+cd /Users/zubinjha/Documents/Projects/job-helper/chrome-page-sender/tester
+npm start
+```
+
+Reload the extension in `chrome://extensions` and wait for:
+`WebSocket client connected.`
+
+### Terminal 2 (clients)
+```sh
+cd /Users/zubinjha/Documents/Projects/job-helper/chrome-page-sender/tester
+npm run request
+```
+
+```sh
+npm run links
+```
+
+```sh
+npm run scroll -- 0
+```
+
+```sh
+npm run click -- 0
+```
+
+Notes:
+- The number (e.g. `0`) is the link index from `npm run links`.
+- Use any index printed by `links` to scroll or click that specific link.
 
 ## License
 MIT. See `LICENSE`.

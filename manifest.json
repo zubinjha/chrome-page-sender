@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Chrome Page Sender",
-  "version": "0.1.0",
-  "description": "A lightweight Chrome extension that captures content from the active tab and sends it to a local server via HTTP.",
+  "version": "0.2.0",
+  "description": "A lightweight Chrome extension that captures page content and supports WebSocket-driven link actions.",
   "permissions": ["activeTab", "scripting", "alarms", "tabs"],
   "host_permissions": ["http://*/*", "https://*/*", "http://localhost:*/*", "ws://localhost:*/*"],
   "background": {
